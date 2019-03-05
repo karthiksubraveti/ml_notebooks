@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-# one epoch score - 63.2
+
 # In[1]:
 
 
@@ -101,7 +101,7 @@ cont_flds = ['Census_SystemVolumeTotalCapacity',
  'Census_OEMNameIdentifier']
 
 
-# In[ ]:
+# In[4]:
 
 
 df_raw = pd.read_csv(f'{PATH}train.csv', low_memory=False)
@@ -110,7 +110,7 @@ for c in cat_flds:
 df_raw.drop(columns=['MachineIdentifier'], inplace=True)
 
 
-# In[ ]:
+# In[5]:
 
 
 n_trn = int(0.9 * len(df_raw))
@@ -118,53 +118,94 @@ val_idx = list(range(n_trn, len(df_raw)))
 procs = [FillMissing, Categorify, Normalize]
 
 
-# In[ ]:
+# In[6]:
 
 
 dep_var = 'HasDetections'
 
 
-# In[ ]:
+# In[7]:
 
 
 data = TabularDataBunch.from_df(df=df_raw, path=PATH, dep_var=dep_var, cat_names=cat_flds, procs=procs, 
                                  valid_idx=val_idx)
 
 
-# In[ ]:
+# In[8]:
 
 
 df_raw = None
 
 
+# In[28]:
+
+
+learner = tabular_learner(data, layers=[1000, 10])
+
+
+# In[29]:
+
+
+learner = learner.load("msft_model_one_cycle_1000")
+
+
+# In[30]:
+
+
+learner.lr_find()
+
+
+# In[31]:
+
+
+learner.recorder.plot()
+
+
 # In[ ]:
 
 
-# running for first time
-learner = tabular_learner(data, layers=[200,100])
+# 1 epoch - msft_model_one_cycle (200, 100)
+# 2 epochs - msft_model_one_cycle_2epochs (200, 100)
+# 3 epochs - msft_model_hidden_100 (100,10)
+# 3 epochs - msft_model_hidden_100 (1000,10)
+# only works when hidden layer size is same
+#learner = learner.load("msft_model_one_cycle_2epochs")
 
 
-# In[ ]:
+# In[33]:
 
 
-learner.fit_one_cycle(1, 1e-2)
+from fastai.callbacks import *
+cbs = [EarlyStoppingCallback(learner), SaveModelCallback(learner)]
 
 
-# In[ ]:
+# In[36]:
 
 
-learner.save("msft_model_one_cycle_3epochs")
+get_ipython().run_line_magic('pinfo', 'learner.fit_one_cycle')
 
 
-# In[ ]:
+# In[42]:
+
+
+learner.fit_one_cycle(1, 1e-2, callbacks=cbs)
+
+
+# In[43]:
+
+
+learner.save("msft_model_one_cycle_1000_1")
+
+
+# In[44]:
 
 
 learner.export()
 
 
-# # inference
+# # Inference
 
-# In[ ]:
+# In[45]:
 
 
 df_test = pd.read_csv(f'{PATH}test.csv', low_memory=False)
@@ -172,32 +213,39 @@ mach_id = df_test.MachineIdentifier.values
 df_test.drop(columns=['MachineIdentifier'], inplace=True)
 
 
-# In[ ]:
+# In[46]:
+
+
+for c in cat_flds:
+    df_test[c] = df_test[c].astype('str')
+
+
+# In[47]:
 
 
 test = TabularList.from_df(df_test, path=PATH, cat_names=cat_flds, cont_names=cont_flds)
 
 
-# In[ ]:
+# In[48]:
 
 
 learner = load_learner(PATH, test=test)
 
 
-# In[ ]:
+# In[49]:
 
 
 pred_val = learner.get_preds(ds_type=DatasetType.Test)
 
 
-# In[ ]:
+# In[50]:
 
 
 df_output = pd.DataFrame( {'MachineIdentifier' : mach_id, 'HasDetections' : [v[1].item() for v in pred_val[0]]})
 
 
-# In[ ]:
+# In[51]:
 
 
-df_output.to_csv("output_march3.csv", index=False)
+df_output.to_csv("output_march4_1000_1.csv", index=False)
 
