@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+# one epoch score - 63.2
 # In[1]:
 
 
